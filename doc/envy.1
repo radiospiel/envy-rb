@@ -1,0 +1,183 @@
+.\" generated with Ronn/v0.7.3
+.\" http://github.com/rtomayko/ronn/tree/0.7.3
+.
+.TH "ENVY" "1" "October 2017" "" ""
+.
+.SH "NAME"
+\fBenvy\fR \- handle sensitive environments
+.
+.SH "SYNOPSIS"
+.
+.nf
+
+envy run [ \-\-secret=name ] path/to/env\.file cmd [ args \.\. ]
+envy edit [ \-\-secret=name ] path/to/env\.file
+envy generate [ \-\-secret=name ] path/to/env\.file
+envy secret:generate name
+.
+.fi
+.
+.SH "DESCRIPTION"
+envy is a tool to help handle environment settings in a secure fashion\.
+.
+.SS "Environment files"
+An environment file contains configuration settings in generally human readable form\. Its format is inspired by the \.INI configuration file format; for details see the EXAMPLE section below\.
+.
+.P
+An environment file may contain secure parts \- those ending in \fB\.secure\fR\. All values in these parts are encrypted before writing to disk\. This makes the environment file safe to keep in source control \- thereby helping with the distribution of environment settings across team members and deployments\.
+.
+.SS "Running in an envy environment"
+To load an environment file and then run a command with that you use
+.
+.IP "" 4
+.
+.nf
+
+envy run path/to/envy\.file command arg arg \.\.
+.
+.fi
+.
+.IP "" 0
+.
+.SS "Encrypting"
+Encoding is done in symmetric fashion\. The encryption and decryption key is stored in a secret file; you can create a new secret via \fBenvy \-\-generate\-secret\fR\.
+.
+.P
+This secret must be shared amongst all parties that may need to read and/or edit an environment file\.
+.
+.SS "Secret names"
+\fBenvy\fR supports \fIsecret names\fR to help organizing secrets\. This way users can setup different secrets for different target environments, thereby managing access to various secret settings\. The secret name is reflected in the file name of the secret file\.
+.
+.P
+Note that \fIsecret files\fR are stored in the directory denoted by \fBENVY_SECRET_DIR\fR, which defaults to \fB~/\.envy\fR\.
+.
+.P
+secret names are determined in this order:
+.
+.IP "\(bu" 4
+the \fB\-\-secret\fR command line argument;
+.
+.IP "\(bu" 4
+any \fBenvy_secret\fR setting in the environment fille;
+.
+.IP "\(bu" 4
+the default secret name \fB"envy"\fR\.
+.
+.IP "" 0
+.
+.SS "Create a new environment file"
+To create a new environment file use \fBenvy [ \-\-secret name ] \-\-generate\fR
+.
+.SS "Editing"
+To edit secure entries in the file one needs to have the secet file available, and uses \fBenvy edit\fR to run a $EDITOR\.
+.
+.SH "EXAMPLE"
+An environment file might look like this:
+.
+.IP "" 4
+.
+.nf
+
+#!/usr/bin/env envy
+#
+# This is a comment
+[mailgun]
+
+# A block which ends in "\.secure" is a secure block\. Entries
+# are encrypted or decrypted as necessary
+[mailgun\.secure]
+MAILGUN_DOMAIN=CaOGaeKlYEmEXoR2xEuqkNCUS7BkK48wpf/KONQg8cQ=
+MAILGUN_API_KEY=CaOGaeKlYEmEXoR2xEuqkLWjk4DWyVHAwsdpChNXYrY=
+
+[database]
+DATABASE_POOL_SIZE=10
+
+[database\.secure]
+DATABASE_URL=8DkIDbY+hG7VKSmw5MiYGRR04EYX3HBdf1tJYbSu+6Y=
+
+[http]
+# Port=80
+HOST_NAME=foo
+
+[http\.secure]
+SECRET_KEY_BASE=8DkIDbY+hG7VKSmw5MiYGRR04EYX3HBdf1tJYbSu+6Y=
+.
+.fi
+.
+.IP "" 0
+.
+.P
+This example features two secure parts\.
+.
+.P
+When processed by \fBenvy\fR this generates the following output:
+.
+.IP "" 4
+.
+.nf
+
+MAILGUN_DOMAIN=my\.secret\.mailgun\.domain
+MAILGUN_API_KEY=my\.secret\.mailgun\.key
+DATABASE_POOL_SIZE=10
+DATABASE_URL=postgres://my\.database/setting
+HOST_NAME=foo
+SECRET_KEY_BASE=bar\e bar\e bar
+.
+.fi
+.
+.IP "" 0
+.
+.SH "ENVIRONMENT VALUES"
+.
+.IP "\(bu" 4
+\fBENVY_SECRET_DIR\fR \- directory used to store secrets, defaults to ~/\.envy
+.
+.IP "" 0
+.
+.SH "INSTALLATION"
+Depending on your system
+.
+.IP "" 4
+.
+.nf
+
+make install
+.
+.fi
+.
+.IP "" 0
+.
+.P
+or
+.
+.IP "" 4
+.
+.nf
+
+sudo make install
+.
+.fi
+.
+.IP "" 0
+.
+.P
+installs \fBenvy\fR in \fB/usr/local\fR\.
+.
+.SH "LIMITATIONS"
+.
+.IP "1." 4
+Environment values may not contain non\-printable and non\-ASCII characters, cannot span multple lines, and must not start with or end in space characters\.
+.
+.IP "2." 4
+Security must be audited\.
+.
+.IP "3." 4
+No salt is used\.
+.
+.IP "4." 4
+Encryption, decryption, and key derivation is currently done via openssl(1)\. This might change in the future\.
+.
+.IP "" 0
+.
+.SH "COPYRIGHT"
+The \fBenvy\fR package is Copyright (C) 2016,2017 @radiospiel \fIhttps://github\.com/radiospiel\fR\. It is released under the terms of the MIT license\.

@@ -1,0 +1,186 @@
+#!/usr/bin/env ruby
+if RUBY_VERSION < "2.0.0"
+  STDERR.puts "This script requires ruby version 2"
+  exit 3
+end
+
+LIB = File.join(File.dirname(__FILE__), "envy.lib")
+
+require_relative "envy.lib/cli"
+require_relative "envy.lib/contract"
+require_relative "envy.lib/log"
+
+require "securerandom"
+require "fileutils"
+require "base64"
+
+class File
+  def self.write(path, content)
+    File.open(path, "w") { |io| io.write(content) }
+  end
+end
+
+module Envy
+  extend CLI
+  extend self
+  include Contract
+
+  def run(file, cmd, *args, secret: "envy")
+    env = Environment.load(source: file, secret: secret)
+    exec env, cmd, *args
+  end
+
+  def load(file, secret: "envy", export: false)
+    export = "" if export == false
+    export = "export " if export == true
+
+    Environment.load(source: file, secret: secret).each do |k, v|
+      puts "#{export}#{k}=#{Shellwords.escape(v)}"
+    end
+  end
+
+  def edit(file, secret: "envy")
+    with_tmp_file do |tmp_file|
+      Environment.unlock source: file, dest: tmp_file, secret: secret
+      edit_file tmp_file
+      Environment.lock source: tmp_file, dest: file, secret: secret
+    end
+  end
+
+  def generate(file, secret: "envy")
+    with_tmp_file do |tmp_file|
+      FileUtils.cp "#{LIB}/template.envy", tmp_file
+      edit_file tmp_file
+      Environment.lock source: tmp_file, dest: file, secret: secret
+    end
+  end
+
+  def secret_generate(name = "envy")
+    Secret.generate(name)
+  end
+
+  private
+
+  def edit_file(file)
+    editor = ENV["EDITOR"] || "vi"
+    sys! "#{editor} #{Shellwords.escape(file)}"
+  end
+
+  def with_tmp_file(&block)
+    require "tempfile"
+
+    file = Tempfile.new('foo')
+    file.close
+    yield file.path
+ ensure
+    file.unlink
+  end
+
+  module Secret
+    extend self
+    include Contract
+
+    def generate(name)
+      secret_file = path_to_secret(name)
+      raise "#{secret_file} already exists." if File.exists?(secret_file)
+
+      FileUtils.mkdir_p envy_dir
+      File.write(secret_file, SecureRandom.hex(32))
+      File.chmod(0400, secret_file)
+      Log.info "Generated #{secret_file}"
+    end
+
+    private
+
+    ENVY_DIR = File.join(ENV["HOME"], ".envy")
+
+    def path_to_secret(name)
+      File.join ENVY_DIR, "#{name}.secret"
+    end
+
+    def read_secret(name)
+      secret_file = path_to_secret(name)
+      File.read(secret_file)
+          .scan(/../)
+          .map { |x| x.hex }
+          .pack('c*')
+    end
+
+    public
+
+    def cipher(cipher_mode, data, secret:)
+      expect! cipher_mode => [ :decrypt, :encrypt ]
+
+      case cipher_mode
+      when :decrypt
+        expect! data => /^envy:/
+        base_cipher(:decrypt, secret: secret, data: Base64.decode64(data[5..-1]))
+      when :encrypt
+        "envy:" + Base64.strict_encode64(base_cipher(:encrypt, secret: secret, data: data))
+      end
+    end
+
+    private
+
+    CIPHER = 'AES-128-CBC'
+
+    def base_cipher(mode, secret:, data:)
+      cipher = OpenSSL::Cipher.new(CIPHER)
+      cipher.send(mode)
+      cipher.key = read_secret(secret)
+      cipher.update(data) + cipher.final
+    end
+  end
+
+  module Environment
+    extend self
+
+    def load(source:, secret:)
+      r = {}
+      process(:decrypt, source: source, secret: secret) do |mode, line|
+        r.update mode => line if mode.is_a?(String)
+      end
+      r
+    end
+
+    def unlock(source:, dest:, secret:)
+      process_and_write(:decrypt, source: source, dest: dest, secret: secret)
+    end
+
+    def lock(source:, dest:, secret:)
+      process_and_write(:encrypt, source: source, dest: dest, secret: secret)
+    end
+
+    private
+
+    def process_and_write(cipher_mode, source:, dest:, secret:)
+      r = []
+      process(cipher_mode, source: source, secret: secret) do |mode, line|
+        case mode
+        when String then r << "#{mode}=#{line}\n"
+        else             r << line
+        end
+      end
+      File.write(dest, r.join(""))
+    end
+
+    def process(cipher_mode, source:, secret:)
+      public_block = true
+
+      File.readlines(source).each do |line|
+        case line
+        when /^\s*#/, /^\s*$/                       then yield :comment, line
+        when /^\s*\[((.+)\.)?secure\]$/             then public_block = false; yield :header, line
+        when /^\s*\[(.+)\]$/                        then public_block = true; yield :header, line
+        when /^\s*([a-zA-Z0-9_]+)\s*=\s*(.*)\s*$/
+          value = public_block ? $2 : Secret.cipher(cipher_mode, $2, secret: secret)
+          yield $1, value
+        else
+          yield :blank, line
+        end
+      end
+    end
+  end
+end
+
+Envy.run!(*ARGV)

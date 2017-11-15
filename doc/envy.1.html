@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta http-equiv='content-type' value='text/html;charset=utf8'>
+  <meta name='generator' value='Ronn/v0.7.3 (http://github.com/rtomayko/ronn/tree/0.7.3)'>
+  <title>envy(1) - handle sensitive environments</title>
+  <style type='text/css' media='all'>
+  /* style: man */
+  body#manpage {margin:0}
+  .mp {max-width:100ex;padding:0 9ex 1ex 4ex}
+  .mp p,.mp pre,.mp ul,.mp ol,.mp dl {margin:0 0 20px 0}
+  .mp h2 {margin:10px 0 0 0}
+  .mp > p,.mp > pre,.mp > ul,.mp > ol,.mp > dl {margin-left:8ex}
+  .mp h3 {margin:0 0 0 4ex}
+  .mp dt {margin:0;clear:left}
+  .mp dt.flush {float:left;width:8ex}
+  .mp dd {margin:0 0 0 9ex}
+  .mp h1,.mp h2,.mp h3,.mp h4 {clear:left}
+  .mp pre {margin-bottom:20px}
+  .mp pre+h2,.mp pre+h3 {margin-top:22px}
+  .mp h2+pre,.mp h3+pre {margin-top:5px}
+  .mp img {display:block;margin:auto}
+  .mp h1.man-title {display:none}
+  .mp,.mp code,.mp pre,.mp tt,.mp kbd,.mp samp,.mp h3,.mp h4 {font-family:monospace;font-size:14px;line-height:1.42857142857143}
+  .mp h2 {font-size:16px;line-height:1.25}
+  .mp h1 {font-size:20px;line-height:2}
+  .mp {text-align:justify;background:#fff}
+  .mp,.mp code,.mp pre,.mp pre code,.mp tt,.mp kbd,.mp samp {color:#131211}
+  .mp h1,.mp h2,.mp h3,.mp h4 {color:#030201}
+  .mp u {text-decoration:underline}
+  .mp code,.mp strong,.mp b {font-weight:bold;color:#131211}
+  .mp em,.mp var {font-style:italic;color:#232221;text-decoration:none}
+  .mp a,.mp a:link,.mp a:hover,.mp a code,.mp a pre,.mp a tt,.mp a kbd,.mp a samp {color:#0000ff}
+  .mp b.man-ref {font-weight:normal;color:#434241}
+  .mp pre {padding:0 4ex}
+  .mp pre code {font-weight:normal;color:#434241}
+  .mp h2+pre,h3+pre {padding-left:0}
+  ol.man-decor,ol.man-decor li {margin:3px 0 10px 0;padding:0;float:left;width:33%;list-style-type:none;text-transform:uppercase;color:#999;letter-spacing:1px}
+  ol.man-decor {width:100%}
+  ol.man-decor li.tl {text-align:left}
+  ol.man-decor li.tc {text-align:center;letter-spacing:4px}
+  ol.man-decor li.tr {text-align:right;float:right}
+  </style>
+</head>
+<!--
+  The following styles are deprecated and will be removed at some point:
+  div#man, div#man ol.man, div#man ol.head, div#man ol.man.
+
+  The .man-page, .man-decor, .man-head, .man-foot, .man-title, and
+  .man-navigation should be used instead.
+-->
+<body id='manpage'>
+  <div class='mp' id='man'>
+
+  <div class='man-navigation' style='display:none'>
+    <a href="#NAME">NAME</a>
+    <a href="#SYNOPSIS">SYNOPSIS</a>
+    <a href="#DESCRIPTION">DESCRIPTION</a>
+    <a href="#EXAMPLE">EXAMPLE</a>
+    <a href="#ENVIRONMENT-VALUES">ENVIRONMENT VALUES</a>
+    <a href="#INSTALLATION">INSTALLATION</a>
+    <a href="#LIMITATIONS">LIMITATIONS</a>
+    <a href="#COPYRIGHT">COPYRIGHT</a>
+  </div>
+
+  <ol class='man-decor man-head man head'>
+    <li class='tl'>envy(1)</li>
+    <li class='tc'></li>
+    <li class='tr'>envy(1)</li>
+  </ol>
+
+  <h2 id="NAME">NAME</h2>
+<p class="man-name">
+  <code>envy</code> - <span class="man-whatis">handle sensitive environments</span>
+</p>
+
+<h2 id="SYNOPSIS">SYNOPSIS</h2>
+
+<pre><code>envy run [ --secret=name ] path/to/env.file cmd [ args .. ]
+envy edit [ --secret=name ] path/to/env.file
+envy generate [ --secret=name ] path/to/env.file
+envy secret:generate name
+</code></pre>
+
+<h2 id="DESCRIPTION">DESCRIPTION</h2>
+
+<p>envy is a tool to help handle environment settings in a secure fashion.</p>
+
+<h3 id="Environment-files">Environment files</h3>
+
+<p>An environment file contains configuration settings in generally human
+readable form. Its format is inspired by the .INI configuration file format;
+for details see the EXAMPLE section below.</p>
+
+<p>An environment file may contain secure parts - those ending in <code>.secure</code>.
+All values in these parts are encrypted before writing to disk. This makes
+the environment file safe to keep in source control - thereby helping
+with the distribution of environment settings across team members and
+deployments.</p>
+
+<h3 id="Running-in-an-envy-environment">Running in an envy environment</h3>
+
+<p>To load an environment file and then run a command with that you use</p>
+
+<pre><code>envy run path/to/envy.file command arg arg ..
+</code></pre>
+
+<h3 id="Encrypting">Encrypting</h3>
+
+<p>Encoding is done in symmetric fashion. The encryption and decryption key is stored
+in a secret file; you can create a new secret via <code>envy --generate-secret</code>.</p>
+
+<p>This secret must be shared amongst all parties that may need to read
+and/or edit an environment file.</p>
+
+<h3 id="Secret-names">Secret names</h3>
+
+<p><code>envy</code> supports <em>secret names</em> to help organizing secrets. This way users can setup
+different secrets for different target environments, thereby managing access to
+various secret settings. The secret name is reflected in the file name of the secret
+file.</p>
+
+<p>Note that <em>secret files</em> are stored in the directory denoted by <code>ENVY_SECRET_DIR</code>,
+which defaults to <code>~/.envy</code>.</p>
+
+<p>secret names are determined in this order:</p>
+
+<ul>
+<li>the <code>--secret</code> command line argument;</li>
+<li>any <code>envy_secret</code> setting in the environment fille;</li>
+<li>the default secret name <code>"envy"</code>.</li>
+</ul>
+
+
+<h3 id="Create-a-new-environment-file">Create a new environment file</h3>
+
+<p>To create a new environment file use <code>envy [ --secret name ] --generate</code></p>
+
+<h3 id="Editing">Editing</h3>
+
+<p>To edit secure entries in the file one needs to have the secet file available,
+and uses <code>envy edit</code> to run a $EDITOR.</p>
+
+<h2 id="EXAMPLE">EXAMPLE</h2>
+
+<p>An environment file might look like this:</p>
+
+<pre><code>#!/usr/bin/env envy
+#
+# This is a comment
+[mailgun]
+
+# A block which ends in ".secure" is a secure block. Entries
+# are encrypted or decrypted as necessary
+[mailgun.secure]
+MAILGUN_DOMAIN=CaOGaeKlYEmEXoR2xEuqkNCUS7BkK48wpf/KONQg8cQ=
+MAILGUN_API_KEY=CaOGaeKlYEmEXoR2xEuqkLWjk4DWyVHAwsdpChNXYrY=
+
+[database]
+DATABASE_POOL_SIZE=10
+
+[database.secure]
+DATABASE_URL=8DkIDbY+hG7VKSmw5MiYGRR04EYX3HBdf1tJYbSu+6Y=
+
+[http]
+# Port=80
+HOST_NAME=foo
+
+[http.secure]
+SECRET_KEY_BASE=8DkIDbY+hG7VKSmw5MiYGRR04EYX3HBdf1tJYbSu+6Y=
+</code></pre>
+
+<p>This example features two secure parts.</p>
+
+<p>When processed by <code>envy</code> this generates the following output:</p>
+
+<pre><code>MAILGUN_DOMAIN=my.secret.mailgun.domain
+MAILGUN_API_KEY=my.secret.mailgun.key
+DATABASE_POOL_SIZE=10
+DATABASE_URL=postgres://my.database/setting
+HOST_NAME=foo
+SECRET_KEY_BASE=bar\ bar\ bar
+</code></pre>
+
+<h2 id="ENVIRONMENT-VALUES">ENVIRONMENT VALUES</h2>
+
+<ul>
+<li><code>ENVY_SECRET_DIR</code> - directory used to store secrets, defaults to ~/.envy</li>
+</ul>
+
+
+<h2 id="INSTALLATION">INSTALLATION</h2>
+
+<p>Depending on your system</p>
+
+<pre><code>make install
+</code></pre>
+
+<p>or</p>
+
+<pre><code>sudo make install
+</code></pre>
+
+<p>installs <code>envy</code> in <code>/usr/local</code>.</p>
+
+<h2 id="LIMITATIONS">LIMITATIONS</h2>
+
+<ol>
+<li>Environment values may not contain non-printable and non-ASCII characters,
+cannot span multple lines, and must not start with or end in space characters.</li>
+<li>Security must be audited.</li>
+<li>No salt is used.</li>
+<li>Encryption, decryption, and key derivation is currently done via <span class="man-ref">openssl<span class="s">(1)</span></span>.
+This might change in the future.</li>
+</ol>
+
+
+<h2 id="COPYRIGHT">COPYRIGHT</h2>
+
+<p>The <strong>envy</strong> package is Copyright (C) 2016,2017 @radiospiel <a href="https://github.com/radiospiel" data-bare-link="true">https://github.com/radiospiel</a>.
+It is released under the terms of the MIT license.</p>
+
+
+  <ol class='man-decor man-foot man foot'>
+    <li class='tl'></li>
+    <li class='tc'>October 2017</li>
+    <li class='tr'>envy(1)</li>
+  </ol>
+
+  </div>
+</body>
+</html>
