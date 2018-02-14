@@ -30,12 +30,19 @@ module Envy
     exec env, cmd, *args
   end
 
-  def load(file, secret: "envy", export: false)
-    export = "" if export == false
-    export = "export " if export == true
+  def load(file, secret: "envy", export: false, json: false)
+    config = Environment.load(source: file, secret: secret)
 
-    Environment.load(source: file, secret: secret).each do |k, v|
-      puts "#{export}#{k}=#{Shellwords.escape(v)}"
+    if json
+      require "json"
+      puts JSON.pretty_generate(config)
+    else
+      export = "" if export == false
+      export = "export " if export == true
+
+      config.each do |k, v|
+        puts "#{export}#{k}=#{Shellwords.escape(v)}"
+      end
     end
   end
 
