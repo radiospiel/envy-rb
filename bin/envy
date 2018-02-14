@@ -30,6 +30,20 @@ module Envy
     exec env, cmd, *args
   end
 
+  def template(file, template, secret: "envy")
+    config = Environment.load(source: file, secret: secret)
+    template = File.read(template)
+    result = template.gsub(/{{([^}:]+)(:([^}]+))?}}/) do |matches|
+      key, default_value = $1, $3
+      if default_value
+        config.fetch(key, default_value)
+      else
+        config.fetch(key)
+      end
+    end
+    puts result
+  end
+
   def load(file, secret: "envy", export: false, json: false)
     config = Environment.load(source: file, secret: secret)
 
