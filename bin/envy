@@ -61,12 +61,19 @@ module Envy
   end
 
   def edit(file, secret: "envy")
+    if !File.exists?(file)
+      generate file, secret: secret
+      return
+    end
+
     with_tmp_file do |tmp_file|
       Environment.unlock source: file, dest: tmp_file, secret: secret
       edit_file tmp_file
       Environment.lock source: tmp_file, dest: file, secret: secret
     end
   end
+
+  private
 
   def generate(file, secret: "envy")
     with_tmp_file do |tmp_file|
@@ -75,6 +82,8 @@ module Envy
       Environment.lock source: tmp_file, dest: file, secret: secret
     end
   end
+
+  public
 
   def secret_generate(name = "envy")
     Secret.generate(name)
