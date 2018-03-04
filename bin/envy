@@ -83,12 +83,6 @@ module Envy
     end
   end
 
-  public
-
-  def secret_generate(name = "envy")
-    Secret.generate(name)
-  end
-
   private
 
   def edit_file(file)
@@ -104,6 +98,12 @@ module Envy
     yield file.path
  ensure
     file.unlink
+  end
+
+  public
+
+  def secret_generate(name = "envy")
+    Secret.generate(name)
   end
 
   module Secret
