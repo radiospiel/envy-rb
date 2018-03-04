@@ -25,11 +25,35 @@ module Envy
   extend self
   include Contract
 
-  def run(file, cmd, *args, secret: "envy")
+  # -- envy run ---------------------------------------------------------------
+
+  # run a command, with environment loaded from envy file.
+  # If no command is defined
+  def run(file, cmd=nil, *args, secret: "envy")
     env = Environment.load(source: file, secret: secret)
-    exec env, cmd, *args
+
+    # when a command is defined on the command line, we'll run it.
+    if cmd
+      exec env, cmd, *args
+      return
+    end
+
+    commands = Environment.commands(source: file, secret: secret)
+    if !commands
+      STDERR.puts "The file #{file} does not contain a [run] section"
+      exit 1
+    end
+
+    commands.each do |command|
+      STDERR.puts "> #{command}"
+      next if system(env, command)
+
+      STDERR.puts "ERROR: #{command} failed with exit code #{$?.exitstatus}"
+      exit 2
+    end
   end
 
+  # fill in environment values into a template.
   def template(file, template, secret: "envy")
     config = Environment.load(source: file, secret: secret)
     template = File.read(template)
@@ -166,11 +190,34 @@ module Envy
     extend self
 
     def load(source:, secret:)
-      r = {}
+      env, _commands = load_file(source: source, secret: secret)
+      env
+    end
+
+    def commands(source:, secret:)
+      _env, commands = load_file(source: source, secret: secret)
+      commands
+    end
+
+    def load_file(source:, secret:)
+      env = {}
+
+      in_run_block = false
+      commands = []
+
       process(:decrypt, source: source, secret: secret) do |mode, line|
-        r.update mode => line if mode.is_a?(String)
+        case mode
+        when :header
+          in_run_block = line.start_with?("[run]")
+        when :command
+          commands << line.gsub(/^\s*-\s*/, "").chomp if in_run_block
+        when String
+          env.update mode => line if mode.is_a?(String)
+        end
       end
-      r
+
+      commands = nil if commands.empty?
+      [env, commands]
     end
 
     def unlock(source:, dest:, secret:)
@@ -205,6 +252,8 @@ module Envy
         when /^\s*([a-zA-Z0-9_]+)\s*=\s*(.*)\s*$/
           value = public_block ? $2 : Secret.cipher(cipher_mode, $2, secret: secret)
           yield $1, value
+        when /^\s*-\s+(.*)/
+          yield :command, line
         else
           yield :blank, line
         end

@@ -30,3 +30,16 @@ DATABASE_POOL_SIZE=10
 # Another secured block
 [database.secure]
 DATABASE_URL=postgres://pg_user:pg_password/server:5432/database/schema
+
+#
+# A run block.
+#
+# Use "envy run <envy-file>" run this block.
+[run]
+
+- echo "This is an example command"
+- echo "Token is $DIGITALOCEAN_ACCESS_TOKEN_DNS"
+
+# when you need to put an environment value defined in this file you'll have
+# to run it via "bash -c", due to escape issues.
+- URL=$DIGITALOCEAN_ACCESS_TOKEN_DNS bash -c 'echo Token is $URL'
