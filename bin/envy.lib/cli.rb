@@ -26,12 +26,20 @@ module CLI
   def args_with_options(args)
     r = []
     options = {}
+    parsing_options = true
+
     while arg = args.shift
-      case arg
-      when /^--(.*)=(.*)/ then options[$1.to_sym] = $2
-      when /^--no-(.*)/   then options[$1.to_sym] = false
-      when /^--(.*)/      then options[$1.to_sym] = true
-      else r << arg
+      if parsing_options
+        case arg
+        when /^--(.*)=(.*)/ then options[$1.to_sym] = $2
+        when /^--no-(.*)/   then options[$1.to_sym] = false
+        when /^--(.*)/      then options[$1.to_sym] = true
+        else 
+          parsing_options = false
+          r << arg
+        end
+      else
+        r << arg
       end
     end
 
