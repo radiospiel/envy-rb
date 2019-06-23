@@ -6,8 +6,6 @@ install: install_bin install_doc
 
 install_bin:
 	install bin/envy /usr/local/bin
-	mkdir -p /usr/local/bin/envy.lib/
-	install bin/envy.lib/* /usr/local/bin/envy.lib/
 
 install_doc:
 	mkdir -p /usr/local/share/man/man1/

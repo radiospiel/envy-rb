@@ -1,15 +1,18 @@
 #!/usr/bin/env ruby
-if RUBY_VERSION < "2.0.0"
-  STDERR.puts "This script requires ruby version 2"
-  exit 3
+
+require "bundler/inline"
+
+gemfile do
+  source "https://rubygems.org"
+  gem "simple-cli"
+  gem "expectation"
 end
 
 LIB = File.join(File.dirname(__FILE__), "envy.lib")
 
-require_relative "envy.lib/cli"
-require_relative "envy.lib/contract"
-require_relative "envy.lib/log"
-
+require "shellwords"
+require "open3"
+require "openssl"
 require "securerandom"
 require "fileutils"
 require "base64"
@@ -21,16 +24,14 @@ class File
 end
 
 module Envy
-  extend CLI
-  extend self
-  include Contract
+  include Simple::CLI
 
   # -- envy run ---------------------------------------------------------------
 
   # run a command, with environment loaded from envy file.
   # If no command is defined
-  def run(file, cmd=nil, *args, secret: "envy")
-    env = Environment.load(source: file, secret: secret)
+  def run(file, cmd = nil, *args)
+    env = Environment.load(source: file)
 
     # when a command is defined on the command line, we'll run it.
     if cmd
@@ -38,8 +39,8 @@ module Envy
       return
     end
 
-    commands = Environment.commands(source: file, secret: secret)
-    if !commands
+    commands = Environment.commands(source: file)
+    unless commands
       STDERR.puts "The file #{file} does not contain a [run] section"
       exit 1
     end
@@ -54,10 +55,10 @@ module Envy
   end
 
   # fill in environment values into a template.
-  def template(file, template, secret: "envy")
-    config = Environment.load(source: file, secret: secret)
+  def template(file, template)
+    config = Environment.load(source: file)
     template = File.read(template)
-    result = template.gsub(/{{([^}:]+)(:([^}]+))?}}/) do |matches|
+    result = template.gsub(/{{([^}:]+)(:([^}]+))?}}/) do |_|
       key, default_value = $1, $3
       if default_value
         config.fetch(key, default_value)
@@ -68,42 +69,45 @@ module Envy
     puts result
   end
 
-  def load(file, secret: "envy", export: false, json: false)
-    config = Environment.load(source: file, secret: secret)
+  # Load a file
+  def load(file, export: false, json: false)
+    config = Environment.load(source: file)
 
     if json
       require "json"
       puts JSON.pretty_generate(config)
     else
-      export = "" if export == false
-      export = "export " if export == true
+      export_prefix = export ? "export " : ""
 
       config.each do |k, v|
-        puts "#{export}#{k}=#{Shellwords.escape(v)}"
+        puts "#{export_prefix}#{k}=#{Shellwords.escape(v)}"
       end
     end
   end
 
-  def edit(file, secret: "envy")
-    if !File.exists?(file)
-      generate file, secret: secret
+  # Edit a file
+  def edit(file)
+    unless File.exist?(file)
+      generate file
       return
     end
 
     with_tmp_file do |tmp_file|
-      Environment.unlock source: file, dest: tmp_file, secret: secret
+      Environment.unlock source: file, dest: tmp_file
       edit_file tmp_file
-      Environment.lock source: tmp_file, dest: file, secret: secret
+      Environment.lock source: tmp_file, dest: file
     end
   end
 
-  private
-
-  def generate(file, secret: "envy")
+  # Generate a file
+  def generate(file)
     with_tmp_file do |tmp_file|
-      FileUtils.cp "#{LIB}/template.envy", tmp_file
+      template = File.read(__FILE__).split("\n__END__\n", 2).last
+      raise Exception, "Cannot read template" unless template
+
+      File.write tmp_file, template
       edit_file tmp_file
-      Environment.lock source: tmp_file, dest: file, secret: secret
+      Environment.lock source: tmp_file, dest: file
     end
   end
 
@@ -115,97 +119,120 @@ module Envy
   end
 
   def with_tmp_file(&block)
+    _ = block
+
     require "tempfile"
 
-    file = Tempfile.new('foo')
+    file = Tempfile.new("foo")
     file.close
     yield file.path
- ensure
+  ensure
     file.unlink
   end
 
   public
 
-  def secret_generate(name = "envy")
-    Secret.generate(name)
+  # generate a new secret
+  def secret_generate
+    Secret.generate
   end
 
+  # print a secret
+  def secret_show
+    puts Secret.printable_secret
+  end
+
+  # The Secret module handles secrets.
   module Secret
     extend self
-    include Contract
 
-    def generate(name)
-      secret_file = path_to_secret(name)
-      raise "#{secret_file} already exists." if File.exists?(secret_file)
+    # generate a secret with a given name.
+    #
+    # The secret is stored in the file system in $HOME/.<name>.envy
+    def generate
+      raise "The secret file #{path_to_secret} already exists." if File.exist?(path_to_secret)
 
-      FileUtils.mkdir_p envy_dir
-      File.write(secret_file, SecureRandom.hex(32))
-      File.chmod(0400, secret_file)
-      Log.info "Generated #{secret_file}"
+      File.write(path_to_secret, SecureRandom.hex(16))
+      File.chmod(0400, path_to_secret)
+      Simple::CLI.logger.info "Generated #{path_to_secret}"
     end
 
     private
 
-    ENVY_DIR = File.join(ENV["HOME"], ".envy")
+    ENVY_BASE_NAME = ".secret.envy"
 
-    def path_to_secret(name)
-      File.join ENVY_DIR, "#{name}.secret"
-    end
+    def path_to_secret
+      raise "The envy secret is set via the ENVY environment variable." if ENV["ENVY"]
 
-    def read_secret(name)
-      secret_file = path_to_secret(name)
-      File.read(secret_file)
-          .scan(/../)
-          .map { |x| x.hex }
-          .pack('c*')
+      path = File.join(ENV["HOME"], ENVY_BASE_NAME)
+      Simple::CLI.logger.debug "secret storage in #{path}"
+      path
     end
 
     public
 
-    def cipher(cipher_mode, data, secret:)
+    # returns the secret in a printable (hex) string
+    def printable_secret
+      printable_secret = ENV["ENVY"] || begin
+        secret_file = path_to_secret
+        File.read(secret_file)
+      end
+    end
+
+    # encrypt or decrypt data
+    def cipher(cipher_mode, data)
       expect! cipher_mode => [ :decrypt, :encrypt ]
 
       case cipher_mode
       when :decrypt
         expect! data => /^envy:/
-        base_cipher(:decrypt, secret: secret, data: Base64.decode64(data[5..-1]))
+        base_cipher(:decrypt, data: Base64.decode64(data[5..-1]))
       when :encrypt
-        "envy:" + Base64.strict_encode64(base_cipher(:encrypt, secret: secret, data: data))
+        "envy:" + Base64.strict_encode64(base_cipher(:encrypt, data: data))
       end
     end
 
     private
 
-    CIPHER = 'AES-128-CBC'
+    CIPHER = "AES-128-CBC"
 
-    def base_cipher(mode, secret:, data:)
+    def base_cipher(mode, data:)
+      expect! mode => [ :decrypt, :encrypt ]
+
       cipher = OpenSSL::Cipher.new(CIPHER)
       cipher.send(mode)
-      cipher.key = read_secret(secret)
+      cipher.key = read_secret
       cipher.update(data) + cipher.final
+    end
+
+    def read_secret
+      printable_secret
+        .scan(/../)
+        .map(&:hex)
+        .pack("c*")
     end
   end
 
   module Environment
     extend self
 
-    def load(source:, secret:)
-      env, _commands = load_file(source: source, secret: secret)
+    def load(source:)
+      env, _commands = load_file(source: source)
       env
     end
 
-    def commands(source:, secret:)
-      _env, commands = load_file(source: source, secret: secret)
+    def commands(source:)
+      _env, commands = load_file(source: source)
       commands
     end
 
-    def load_file(source:, secret:)
+    def load_file(source:)
       env = {}
 
       in_run_block = false
       commands = []
 
-      process(:decrypt, source: source, secret: secret) do |mode, line|
+      process(:decrypt, source: source) do |mode, line|
         case mode
         when :header
           in_run_block = line.start_with?("[run]")
@@ -220,37 +247,45 @@ module Envy
       [env, commands]
     end
 
-    def unlock(source:, dest:, secret:)
-      process_and_write(:decrypt, source: source, dest: dest, secret: secret)
+    def unlock(source:, dest:)
+      process_and_write(:decrypt, source: source, dest: dest)
     end
 
-    def lock(source:, dest:, secret:)
-      process_and_write(:encrypt, source: source, dest: dest, secret: secret)
+    def lock(source:, dest:)
+      process_and_write(:encrypt, source: source, dest: dest)
     end
 
     private
 
-    def process_and_write(cipher_mode, source:, dest:, secret:)
+    def process_and_write(cipher_mode, source:, dest:)
       r = []
-      process(cipher_mode, source: source, secret: secret) do |mode, line|
-        case mode
-        when String then r << "#{mode}=#{line}\n"
-        else             r << line
-        end
+
+      process(cipher_mode, source: source) do |mode, line|
+        # process lines that contain a value. In that case mode is the name of
+        # the environment value. In all other cases mode is a symbol, and line
+        # contains the entire line.
+        line = "#{mode}=#{line}\n" if mode.is_a?(String)
+        r << line
       end
+
       File.write(dest, r.join(""))
     end
 
-    def process(cipher_mode, source:, secret:)
+    def process(cipher_mode, source:)
       public_block = true
 
       File.readlines(source).each do |line|
         case line
-        when /^\s*#/, /^\s*$/                       then yield :comment, line
-        when /^\s*\[((.+)\.)?secure\]$/             then public_block = false; yield :header, line
-        when /^\s*\[(.+)\]$/                        then public_block = true; yield :header, line
+        when /^\s*#/, /^\s*$/
+          yield :comment, line
+        when /^\s*\[((.+)\.)?secure\]$/
+          public_block = false
+          yield :header, line
+        when /^\s*\[(.+)\]$/
+          public_block = true
+          yield :header, line
         when /^\s*([a-zA-Z0-9_]+)\s*=\s*(.*)\s*$/
-          value = public_block ? $2 : Secret.cipher(cipher_mode, $2, secret: secret)
+          value = public_block ? $2 : Secret.cipher(cipher_mode, $2)
           yield $1, value
         when /^\s*-\s+(.*)/
           yield :command, line
@@ -263,3 +298,50 @@ module Envy
 end
 
 Envy.run!(*ARGV)
+
+__END__
+#
+# This is an envy(3) file.
+#
+# Use "envy edit path-to-file" to edit this file.
+#
+
+# If you want to change from the default secret name "envy". The envy_secret_name
+# part must be set before the first block. NOTE: This feature is not yet implemented!
+#
+# envy_secret_name=mysecretname
+
+#
+# A non-secured part. Note that part names are only here for documentation purposes.
+#
+[http]
+HTTP_PORT=80
+
+#
+# A secure block: every entry in a block named [secure] or [something.secure]
+# will be encrypted.
+[secure]
+MY_PASSWORD=This is my password
+
+#
+# Another non-secured block
+[database]
+DATABASE_POOL_SIZE=10
+
+#
+# Another secured block
+[database.secure]
+DATABASE_URL=postgres://pg_user:pg_password/server:5432/database/schema
+
+#
+# A run block.
+#
+# Use "envy run <envy-file>" run this block.
+[run]
+
+- echo "This is an example command"
+- echo "Token is $DIGITALOCEAN_ACCESS_TOKEN_DNS"
+
+# when you need to put an environment value defined in this file you'll have
+# to run it via "bash -c", due to escape issues.
+- URL=$DIGITALOCEAN_ACCESS_TOKEN_DNS bash -c 'echo Token is $URL'
