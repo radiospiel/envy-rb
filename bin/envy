@@ -1,10 +1,12 @@
 #!/usr/bin/env ruby
 
+# rubocop:disable Metrics/ModuleLength
+
 require "bundler/inline"
 
 gemfile do
   source "https://rubygems.org"
-  gem "simple-cli", "~> 0.2.19"
+  gem "simple-cli", "~> 0.2.20"
   gem "expectation"
 end
 
@@ -19,6 +21,7 @@ require "base64"
 
 class File
   def self.write(path, content)
+    # [TODO] open me in 0600 mode.
     File.open(path, "w") { |io| io.write(content) }
   end
 end
@@ -137,46 +140,80 @@ module Envy
     Secret.generate
   end
 
+  # generate a gpg file using a symmetric password.
+  #
+  # Usage:
+  #
+  #   envy secret:backup eny.secret.backup
+  #   envy secret:restore eny.secret.backup
+  #
+  def secret_backup(path, force: false)
+    confirm "We'll run gpg to create an encrypted version of the secret file. You will be asked for a passphrase!" unless force
+
+    system "gpg -o #{Shellwords.escape(path)} --symmetric --armor #{Shellwords.escape(Secret.path)}"
+    File.open path, "a" do |io|
+      io.puts <<~MSG
+                This is an encrypted envy(3) secret. To restore the secret please run
+        envy secret:restore <path_to_this_file>.
+      MSG
+    end
+
+    logger.success "Created #{path}"
+  end
+
+  # restore a secret
+  def secret_restore(path, force: false)
+    confirm "We'll run gpg to decrypt the supplied file. You will be asked for a passphrase!" unless force
+
+    secret = IO.popen "gpg --decrypt #{Shellwords.escape(path)}", &:read
+
+    raise "Could not read secret, gpg failed." unless $?.exitstatus == 0
+
+    Secret.set secret
+  end
+
   # print a secret
   def secret_show
-    puts Secret.printable_secret
+    puts Secret.get
   end
 
   # The Secret module handles secrets.
   module Secret
     extend self
 
+    # set the secret to a new value
+    def set(secret)
+      if File.exist?(path)
+        backup_path = "#{path}.bak"
+        Simple::CLI.logger.info "Backing up secret in #{backup_path}"
+        FileUtils.mv path, backup_path
+      end
+
+      File.write(path, secret)
+      File.chmod(0400, path)
+      Simple::CLI.logger.info "Generated #{path}"
+    end
+
     # generate a secret with a given name.
     #
     # The secret is stored in the file system in $HOME/.<name>.envy
     def generate
-      raise "The secret file #{path_to_secret} already exists." if File.exist?(path_to_secret)
+      raise "The secret file #{path} already exists." if File.exist?(path)
 
-      File.write(path_to_secret, SecureRandom.hex(16))
-      File.chmod(0400, path_to_secret)
-      Simple::CLI.logger.info "Generated #{path_to_secret}"
+      set SecureRandom.hex(16)
     end
-
-    private
 
     ENVY_BASE_NAME = ".secret.envy"
 
-    def path_to_secret
-      raise "The envy secret is set via the ENVY environment variable." if ENV["ENVY"]
-
+    def path
       path = File.join(ENV["HOME"], ENVY_BASE_NAME)
       Simple::CLI.logger.debug "secret storage in #{path}"
       path
     end
 
-    public
-
-    # returns the secret in a printable (hex) string
-    def printable_secret
-      printable_secret = ENV["ENVY"] || begin
-        secret_file = path_to_secret
-        File.read(secret_file)
-      end
+    # returns the secret as a printable (hex) string
+    def get
+      File.read(path)
     end
 
     # encrypt or decrypt data
@@ -186,9 +223,9 @@ module Envy
       case cipher_mode
       when :decrypt
         expect! data => /^envy:/
-        base_cipher(:decrypt, data: Base64.decode64(data[5..-1]))
+        cipher_op(:decrypt, data: Base64.decode64(data[5..-1]))
       when :encrypt
-        "envy:" + Base64.strict_encode64(base_cipher(:encrypt, data: data))
+        "envy:" + Base64.strict_encode64(cipher_op(:encrypt, data: data))
       end
     end
 
@@ -196,20 +233,15 @@ module Envy
 
     CIPHER = "AES-128-CBC"
 
-    def base_cipher(mode, data:)
+    def cipher_op(mode, data:)
       expect! mode => [ :decrypt, :encrypt ]
+
+      binary_secret = get.scan(/../).map(&:hex).pack("c*")
 
       cipher = OpenSSL::Cipher.new(CIPHER)
       cipher.send(mode)
-      cipher.key = read_secret
+      cipher.key = binary_secret
       cipher.update(data) + cipher.final
-    end
-
-    def read_secret
-      printable_secret
-        .scan(/../)
-        .map(&:hex)
-        .pack("c*")
     end
   end
 
