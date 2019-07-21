@@ -6,7 +6,7 @@ require "bundler/inline"
 
 gemfile do
   source "https://rubygems.org"
-  gem "simple-cli", "~> 0.2.20"
+  gem "simple-cli", "~> 0.2.23"
   gem "expectation"
 end
 
@@ -148,7 +148,7 @@ module Envy
   #   envy secret:restore eny.secret.backup
   #
   def secret_backup(path, force: false)
-    confirm "We'll run gpg2 to create an encrypted version of the secret file. You will be asked for a passphrase!" unless force
+    confirm! "We'll run gpg2 to create an encrypted version of the secret file. You will be asked for a passphrase!" unless force
 
     system "gpg2 -o #{Shellwords.escape(path)} --symmetric --armor #{Shellwords.escape(Secret.path)}"
 
@@ -164,7 +164,7 @@ module Envy
 
   # restore a secret
   def secret_restore(path, force: false)
-    confirm "We'll run gpg2 to decrypt the supplied file. You will be asked for a passphrase!" unless force
+    confirm! "We'll run gpg2 to decrypt the supplied file. You will be asked for a passphrase!" unless force
 
     secret = IO.popen "gpg2 --decrypt #{Shellwords.escape(path)}", &:read
 
