@@ -1,9 +1,11 @@
-.PHONY: test doc
+.PHONY: doc
 
-default: test install doc
+default: test-ruby install doc
 
-test:
-	spec/bin/roundup spec/*-test.sh
+test: test-ruby
+
+test-ruby:
+	ENVY=bin/envy spec/bin/roundup spec/*-test.sh
 
 install: install_bin install_doc
 
