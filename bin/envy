@@ -339,11 +339,6 @@ __END__
 # Use "envy edit path-to-file" to edit this file.
 #
 
-# If you want to change from the default secret name "envy". The envy_secret_name
-# part must be set before the first block. NOTE: This feature is not yet implemented!
-#
-# envy_secret_name=mysecretname
-
 #
 # A non-secured part. Note that part names are only here for documentation purposes.
 #
