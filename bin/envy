@@ -207,8 +207,13 @@ module Envy
     ENVY_BASE_NAME = ".secret.envy"
 
     def path
-      path = File.join(ENV["HOME"], ENVY_BASE_NAME)
-      Simple::CLI.logger.debug "secret storage in #{path}"
+      if path = ENV["ENVY_SECRET_PATH"]
+        Simple::CLI.logger.debug "read secret storage from ENVY_SECRET_PATH: #{path}"
+      else
+        path = File.join(ENV["HOME"], ENVY_BASE_NAME)
+        Simple::CLI.logger.debug "secret storage in #{path}"
+      end
+
       path
     end
 
