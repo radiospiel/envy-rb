@@ -1,0 +1,18 @@
+#!/bin/sh
+
+FILE=$1
+
+cat > $FILE <<FOO
+
+[http]
+HTTP_PORT=81
+
+#
+# A secure block: every entry in a block named [secure] or [something.secure]
+# will be encrypted.
+[secure]
+MY_PASSWORD=new-password
+
+FOO
+
+false

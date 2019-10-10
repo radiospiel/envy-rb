@@ -1,6 +1,9 @@
 .PHONY: test doc
 
-default: install doc
+default: test install doc
+
+test:
+	spec/bin/roundup spec/*-test.sh
 
 install: install_bin install_doc
 

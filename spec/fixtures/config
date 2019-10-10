@@ -1,0 +1,36 @@
+#
+# This is an envy(3) file.
+#
+# Use "envy edit path-to-file" to edit this file.
+#
+
+#
+# A non-secured part. Note that part names are only here for documentation purposes.
+#
+[http]
+HTTP_PORT=80
+
+#
+# A secure block: every entry in a block named [secure] or [something.secure]
+# will be encrypted.
+[secure]
+MY_PASSWORD=envy:TJFvCN9EjQqfPtLQKTYvXPtwUb17mOlGpa8+by2pvTA=
+
+#
+# Another non-secured block
+[database]
+DATABASE_POOL_SIZE=10
+
+#
+# Another secured block
+[database.secure]
+DATABASE_URL=envy:Ekfx7uNfpxK7GvI5gkoB1lArvwJD4IT/b9VMxYSwm4LJ55Ae0Eicei5G0euqALWki9zIIBvUEUbdYYzJueaFIA==
+
+#
+# A run block.
+#
+# Use "envy run <envy-file>" run this block.
+[run]
+
+- echo "This is an example command"
+- echo "Token is $TOKEN"

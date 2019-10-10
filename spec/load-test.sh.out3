@@ -1,0 +1,6 @@
+  "DATABASE_POOL_SIZE": "10",
+  "DATABASE_URL": "postgres://pg_user:pg_password/server:5432/database/schema"
+  "HTTP_PORT": "80",
+  "MY_PASSWORD": "This is my password",
+{
+}
