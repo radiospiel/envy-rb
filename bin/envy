@@ -62,7 +62,8 @@ module Envy
     config = Environment.load(source: file)
     template = File.read(template)
     result = template.gsub(/{{([^}:]+)(:([^}]+))?}}/) do |_|
-      key, default_value = $1, $3
+      key = $1
+      default_value = ENV[key] || $3
       if default_value
         config.fetch(key, default_value)
       else
