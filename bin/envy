@@ -104,6 +104,8 @@ module Envy
 
   # Generate a file
   def generate(file)
+    FileUtils.mkdir_p File.dirname(file)
+
     with_tmp_file do |tmp_file|
       template = File.read(__FILE__).split("\n__END__\n", 2).last
       raise Exception, "Cannot read template" unless template
