@@ -1,0 +1,12 @@
+#!/bin/bash
+set -eu -o pipefail
+
+BINARY=$0.$MACHTYPE.bin
+
+[ -x $BINARY ] && exec $BINARY $@
+
+cat <<MSG
+It looks like there is no envy binary for the machine type $MACHTYPE.
+
+You probably have to build one yourself. Go to https://github.com:radiospiel/envy-rb.git
+MSG

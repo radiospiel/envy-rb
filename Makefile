@@ -1,11 +1,37 @@
 .PHONY: doc
 
-default: test-ruby install doc
+default: build-golang
+#default: test-ruby install doc
 
 test: test-ruby
 
+# -- go specific --------------------------------------------------------------
+
+.PHONY: bin/envy.go.bin
+build-golang: bin/envy.go.bin
+
+bin/envy.go.bin:
+	go build -o $@ src/golang/main.go
+
+test-golang:
+	ENVY=bin/envy.go spec/bin/roundup spec/*-test.sh
+
+build-golang-all:
+	# $MACHTYPE | $GOOS | $GOARCH
+	#
+	# x86_64-apple-darwin18 | darwin | amd64
+	# x86_64-pc-linux-gnu | linux | amd64
+	GOOS=darwin GOARCH=amd64 go build -ldflags="-s -w" -o bin/envy.x86_64-apple-darwin18.bin src/golang/main.go
+	upx bin/envy.x86_64-apple-darwin18.bin
+	GOOS=linux GOARCH=amd64 go build -ldflags="-s -w" -o bin/envy.x86_64-pc-linux-gnu.bin src/golang/main.go
+	upx bin/envy.x86_64-pc-linux-gnu.bin
+
+# --- ruby specific -----------------------------------------------------------
+
 test-ruby:
 	ENVY=bin/envy spec/bin/roundup spec/*-test.sh
+
+# --- generic -----------------------------------------------------------------
 
 install: install_bin install_doc
 
