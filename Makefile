@@ -1,11 +1,27 @@
 .PHONY: doc
 
-default: test-ruby install doc
+default: build-golang
+#default: test-ruby install doc
 
 test: test-ruby
 
+# -- go specific --------------------------------------------------------------
+
+.PHONY: bin/envy.go.bin
+build-golang: bin/envy.go.bin
+
+bin/envy.go.bin:
+	go build -o $@ src/envy/main.go
+
+test-golang:
+	ENVY=bin/envy.go spec/bin/roundup spec/*-test.sh
+
+# --- ruby specific -----------------------------------------------------------
+
 test-ruby:
 	ENVY=bin/envy spec/bin/roundup spec/*-test.sh
+
+# --- generic -----------------------------------------------------------------
 
 install: install_bin install_doc
 
