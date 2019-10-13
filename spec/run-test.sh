@@ -1,8 +1,7 @@
 #!/usr/bin/env roundup
 set -eu -o pipefail
 
-
-describe "envy test"
+describe "envy run"
 
 before() {
   rm -rf tmp/spec/*
@@ -10,11 +9,6 @@ before() {
 
 it_is_listed_in_help() {
   ($ENVY help 2>&1) | grep -w run
-}
-
-it_runs_run_section_wo_args() {
-  TOKEN=foo ENVY_SECRET_PATH=spec/fixtures/secret $ENVY run spec/fixtures/config > tmp/spec/stdout
-  diff tmp/spec/stdout spec/run-test.sh.out1
 }
 
 it_runs_specified_command() {

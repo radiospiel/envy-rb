@@ -33,28 +33,9 @@ module Envy
 
   # run a command, with environment loaded from envy file.
   # If no command is defined
-  def run(file, cmd = nil, *args)
+  def run(file, cmd, *args)
     env = Environment.load(source: file)
-
-    # when a command is defined on the command line, we'll run it.
-    if cmd
-      exec env, cmd, *args
-      return
-    end
-
-    commands = Environment.commands(source: file)
-    unless commands
-      STDERR.puts "The file #{file} does not contain a [run] section"
-      exit 1
-    end
-
-    commands.each do |command|
-      STDERR.puts "> #{command}"
-      next if system(env, command)
-
-      STDERR.puts "ERROR: #{command} failed with exit code #{$?.exitstatus}"
-      exit 2
-    end
+    exec env, cmd, *args
   end
 
   # fill in environment values into a template.
@@ -277,8 +258,6 @@ module Envy
         case mode
         when :header
           in_run_block = line.start_with?("[run]")
-        when :command
-          commands << line.gsub(/^\s*-\s*/, "").chomp if in_run_block
         when String
           env.update mode => line if mode.is_a?(String)
         end
@@ -328,8 +307,6 @@ module Envy
         when /^\s*([a-zA-Z0-9_]+)\s*=\s*(.*)\s*$/
           value = public_block ? $2 : Secret.cipher(cipher_mode, $2)
           yield $1, value
-        when /^\s*-\s+(.*)/
-          yield :command, line
         else
           yield :blank, line
         end
@@ -368,16 +345,3 @@ DATABASE_POOL_SIZE=10
 # Another secured block
 [database.secure]
 DATABASE_URL=postgres://pg_user:pg_password/server:5432/database/schema
-
-#
-# A run block.
-#
-# Use "envy run <envy-file>" run this block.
-[run]
-
-- echo "This is an example command"
-- echo "Token is $DIGITALOCEAN_ACCESS_TOKEN_DNS"
-
-# when you need to put an environment value defined in this file you'll have
-# to run it via "bash -c", due to escape issues.
-- URL=$DIGITALOCEAN_ACCESS_TOKEN_DNS bash -c 'echo Token is $URL'

@@ -25,12 +25,3 @@ DATABASE_POOL_SIZE=10
 # Another secured block
 [database.secure]
 DATABASE_URL=envy:Ekfx7uNfpxK7GvI5gkoB1lArvwJD4IT/b9VMxYSwm4LJ55Ae0Eicei5G0euqALWki9zIIBvUEUbdYYzJueaFIA==
-
-#
-# A run block.
-#
-# Use "envy run <envy-file>" run this block.
-[run]
-
-- echo "This is an example command"
-- echo "Token is $TOKEN"
