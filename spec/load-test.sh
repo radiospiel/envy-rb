@@ -25,7 +25,7 @@ it_loads_envy_file_w_export_flag() {
 
 it_loads_envy_file_w_json_flag() {
   # jq pretty prints JSON.
-  ENVY_SECRET_PATH=spec/fixtures/secret $ENVY load --json spec/fixtures/config | jq | sort > tmp/spec/stdout
+  ENVY_SECRET_PATH=spec/fixtures/secret $ENVY load --json spec/fixtures/config | jq | sort | tr ',' ' '  > tmp/spec/stdout
   diff tmp/spec/stdout spec/load-test.sh.out3
 }
 
