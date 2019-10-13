@@ -1,4 +1,6 @@
 #!/usr/bin/env roundup
+set -eu -o pipefail
+
 
 describe "envy test"
 

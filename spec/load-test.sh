@@ -1,4 +1,6 @@
 #!/usr/bin/env roundup
+set -eu -o pipefail
+
 
 # this spec tests values in fixtures.envy
 describe "envy load"
