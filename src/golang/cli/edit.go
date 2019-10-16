@@ -61,19 +61,7 @@ func do_edit(path string) {
 
 	tmpFile.Close()
 
-	/*
-	 * make sure we have an EDITOR env variable
-	 */
-	_, ok := os.LookupEnv("EDITOR")
-	if !ok {
-		os.Setenv("EDITOR", "vi")
-	}
-
-	/*
-	 * run editor on tmpFile. The editor is determined by $EDITOR, and
-	 */
-	err = shell("$EDITOR " + tmpFile.Name())
-	if err != nil {
+	if !editFile(tmpFile.Name()) {
 		return
 	}
 
