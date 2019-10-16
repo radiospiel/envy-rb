@@ -38,22 +38,6 @@ in a secret file; you can create a new secret via `envy --generate-secret`.
 This secret must be shared amongst all parties that may need to read
 and/or edit an environment file.
 
-### Secret names
-
-`envy` supports *secret names* to help organizing secrets. This way users can setup
-different secrets for different target environments, thereby managing access to
-various secret settings. The secret name is reflected in the file name of the secret
-file.
-
-Note that *secret files* are stored in the directory denoted by `ENVY_SECRET_DIR`,
-which defaults to `~/.envy`.
-
-secret names are determined in this order:
-
-- the `--secret` command line argument;
-- any `envy_secret` setting in the environment fille;
-- the default secret name `"envy"`.
-
 ### Create a new environment file
 
 To create a new environment file use `envy [ --secret name ] --generate`
@@ -67,8 +51,6 @@ and uses `envy edit` to run a $EDITOR.
 
 An environment file might look like this:
 
-    #!/usr/bin/env envy
-    #
     # This is a comment
     [mailgun]
 
@@ -104,7 +86,7 @@ When processed by `envy` this generates the following output:
 
 ## ENVIRONMENT VALUES
 
-- `ENVY_SECRET_DIR` - directory used to store secrets, defaults to ~/.envy
+- `ENVY_SECRET_PATH` - the path to the secret file, defaults to ~/.secret.envy
 
 ## INSTALLATION
 
