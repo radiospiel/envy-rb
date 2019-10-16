@@ -3,7 +3,7 @@
 default: build-golang
 #default: test-ruby install doc
 
-test: test-ruby
+test: test-golang
 
 # -- go specific --------------------------------------------------------------
 
@@ -29,7 +29,7 @@ build-golang-all:
 # --- ruby specific -----------------------------------------------------------
 
 test-ruby:
-	ENVY=bin/envy spec/bin/roundup spec/*-test.sh
+	ENVY=bin/envy.rb spec/bin/roundup spec/*-test.sh
 
 # --- generic -----------------------------------------------------------------
 
