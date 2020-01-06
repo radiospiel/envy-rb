@@ -7,17 +7,17 @@ import ()
 /*
  * Copy the current secret via ${SSH_BINARY:-ssh} to a target account.
  */
-func do_secret_generate() {
+func do_secret_install(target_account string) {
 }
 
 func init() {
 	var cmd = &cobra.Command{
-		Use:   "secret:generate",
-		Short: "Generate the envy secret",
-		Long:  `Generate the envy secret`,
-		Args:  cobra.ExactArgs(0),
+		Use:   "secret:install",
+		Short: "Install the current envy secret to a remote location",
+		Long:  `Install the current envy secret to a remote location`,
+		Args:  cobra.ExactArgs(1),
 		Run: func(cmd *cobra.Command, args []string) {
-			do_secret_generate()
+			do_secret_install(args[0])
 		},
 	}
 
