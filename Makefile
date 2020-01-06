@@ -3,7 +3,7 @@
 default: build-golang
 #default: test-ruby install doc
 
-test: test-golang
+test: build-golang test-golang
 
 # -- go specific --------------------------------------------------------------
 
