@@ -1,0 +1,19 @@
+#!/bin/bash
+set -eu -o pipefail
+
+DATE=$(date "+%y%m%d-%H%M%S")
+
+# RELEASE_TYPE=""
+# RELEASE_TYPE="--draft"
+RELEASE_TYPE="--prerelease"
+          
+# prepare release.md text file
+erb date=$DATE $0.md.erb > tmp/release.md
+
+hub release create $RELEASE_TYPE \
+                   --attach "bin/envy.x86_64-pc-linux-gnu.bin#linux binary" \
+                   --attach "bin/envy.x86_64-apple-darwin18.bin#macos binary" \
+                   --file tmp/release.md \
+                   --edit \
+                   --commitish purpose/add-go \
+                   releases/$DATE

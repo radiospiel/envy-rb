@@ -26,6 +26,12 @@ build-golang-all:
 	GOOS=linux GOARCH=amd64 go build -ldflags="-s -w" -o bin/envy.x86_64-pc-linux-gnu.bin src/golang/main.go
 	upx bin/envy.x86_64-pc-linux-gnu.bin
 
+prerelease: build-golang-all
+	scripts/prerelease
+
+release: build-golang-all
+	scripts/release
+
 # --- ruby specific -----------------------------------------------------------
 
 test-ruby:
