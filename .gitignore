@@ -1,3 +1,4 @@
 tmp/
 bin/envy.*.bin
 .roundup.*
+.dependencies

@@ -10,8 +10,8 @@ import (
 var (
 	rootCmd = &cobra.Command{
 		Use:   "envy",
-		Short: "envy handles secure encvironments",
-		Long:  `envy handles secure encvironments`,
+		Short: "envy handles secure environments",
+		Long:  `envy handles secure environments`,
 	}
 )
 
