@@ -1,6 +1,10 @@
 envy(1) -- handle sensitive environments
 ========================================
 
+> Note that there is a golang-based implementation which is nearly 100% feature complete. This version stands out because it does not requires you to have a ruby runtime on target machines; instead you would just build and use a OS specific binary.
+> 
+> You'll find it [here](https://github.com/radiospiel/envy-rb/pull/2).
+
 ## SYNOPSIS
 
     envy run [ --secret=name ] path/to/env.file cmd [ args .. ]
